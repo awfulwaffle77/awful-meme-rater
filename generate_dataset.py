@@ -4,9 +4,27 @@ import os
 import cv2
 import pytesseract
 import enchant
-import re
+import math
+import numpy as np
+from typing import Tuple, Union
 
-RESOURCES_FOLDER = os.path.join(os.getcwd(), "res\\")
+RESOURCES_FOLDER = os.path.join(os.getcwd(), "res\\pics")
+PYTESSERACT_CONFIG = r"--oem 3 --psm 11"
+
+
+def rotate(  # function from deskew github
+        image: np.ndarray, angle: float, background: Union[int, Tuple[int, int, int]]
+) -> np.ndarray:
+    old_width, old_height = image.shape[:2]
+    angle_radian = math.radians(angle)
+    width = abs(np.sin(angle_radian) * old_height) + abs(np.cos(angle_radian) * old_width)
+    height = abs(np.sin(angle_radian) * old_width) + abs(np.cos(angle_radian) * old_height)
+
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    rot_mat[1, 2] += (width - old_width) / 2
+    rot_mat[0, 2] += (height - old_height) / 2
+    return cv2.warpAffine(image, rot_mat, (int(round(height)), int(round(width))), borderValue=background)
 
 
 def write_attrs(_submission, _reference_name, save_line):
@@ -61,7 +79,7 @@ if __name__ == "__main__":
 
     # Uses idx just for testing purposes. Should be removed later
     for idx, submission in enumerate(subreddit.hot(limit=200)):
-        if submission.url[-3:] != "png" and submission.url[-3:] != "jpg":
+        if submission.url[-3:] != "png" and submission.url[-3:] != "jpg" and submission.url[-3:] != "jpeg":
             continue
 
         reference_name = submission.url.split("/")[-1]
@@ -70,13 +88,26 @@ if __name__ == "__main__":
         print(str(idx) + " " + submission.url)
 
         img_data = requests.get(submission.url).content
-        with open(RESOURCES_FOLDER + reference_name, 'wb') as handler:
+        with open(RESOURCES_FOLDER + reference_name_no_ext + ".jpeg", 'wb') as handler:
             handler.write(img_data)
 
-            img = cv2.Canny(cv2.medianBlur(cv2.imread(RESOURCES_FOLDER + reference_name, cv2.IMREAD_GRAYSCALE), 5), 100, 200)
-            cv2.imshow("img", img)
-            cv2.waitKey(0)
-            text = pytesseract.image_to_string(img)
+            image = cv2.imread(RESOURCES_FOLDER + reference_name_no_ext + ".jpeg")
+            # grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # angle = determine_skew(grayscale)
+            # rotated = rotate(image, angle, (0, 0, 0))
+
+            img = cv2.bilateralFilter(image, 5, 55, 60)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, img = cv2.threshold(img, 240, 255, 1)
+            # img = cv2.Canny(cv2.medianBlur(image, 5), 100, 200)
+
+            # cv2.namedWindow('img', cv2.WINDOW_KEEPRATIO)
+            # cv2.imshow("img", img)
+            # cv2.resizeWindow('img', 800, 800)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
+            text = pytesseract.image_to_string(img, lang='eng', config=PYTESSERACT_CONFIG)
 
             text_lines = text.split("\n")
             final_line = ""
