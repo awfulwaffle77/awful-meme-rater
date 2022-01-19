@@ -1,3 +1,5 @@
 .idea
 praw.ini
 res/*
+*.jpg
+*.attrs

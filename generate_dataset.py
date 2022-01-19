@@ -8,7 +8,7 @@ import math
 import numpy as np
 from typing import Tuple, Union
 
-RESOURCES_FOLDER = os.path.join(os.getcwd(), "res\\pics")
+RESOURCES_FOLDER = os.path.join(os.getcwd(), "res\\pics\\")
 PYTESSERACT_CONFIG = r"--oem 3 --psm 11"
 
 
@@ -29,7 +29,7 @@ def rotate(  # function from deskew github
 
 def write_attrs(_submission, _reference_name, save_line):
     f = open(RESOURCES_FOLDER + _reference_name + ".attrs", "w", encoding="utf-8")
-    f.write("title=" + str(_submission.title) + "\n")
+    f.write("title=" + str(str(_submission.title).encode("utf-8"))+ "\n")  # some titles had emojis..
     f.write("score=" + str(_submission.score) + "\n")
     f.write("created_utc=" + str(_submission.created_utc) + "\n")
     if save_line != "":
@@ -117,6 +117,7 @@ if __name__ == "__main__":
                 if all_words_correct(words):
                     final_line += " ".join(words) + "\n"
 
+            final_line = final_line.replace("\n", " ")
             print(final_line)
 
         write_attrs(submission, reference_name_no_ext, final_line)
