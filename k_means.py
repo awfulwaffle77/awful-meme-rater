@@ -32,8 +32,12 @@ def copy_to_folders():
         shutil.copy(src, dest)
 
 
-def get_attr_in_dict(filename):
+def get_attr_in_dict(filename, cust_dict=None):
+    if cust_dict is None:
+        cust_dict = attr_dict_expl
     current_keys = [i for i in POSSIBLE_KEYS]
+
+    filename = filename.split(".")[0]
     filename = filename + ".attrs"
     f = open(filename, "r")
     lines = f.readlines()
@@ -41,28 +45,35 @@ def get_attr_in_dict(filename):
     for line in lines:
         key = line.split("=")[0]
         value = line.split("=")[1]
-        attr_dict_expl[key].append(value)
+        cust_dict[key].append(value)
         current_keys.remove(key)
     if len(current_keys) != 0:
         for i in current_keys:
-            attr_dict_expl[i].append(KMEAN_NULL_STRING_VALUE)
+            cust_dict[i].append(KMEAN_NULL_STRING_VALUE)
 
 
-def init_attr_dict_expl():
-    attr_dict_expl["title"] = []
-    attr_dict_expl["score"] = []
-    attr_dict_expl["created_utc"] = []
-    attr_dict_expl["text"] = []
+def init_attr_dict_expl(custom_dict=None):
+    if custom_dict is None:
+        custom_dict = attr_dict_expl
+    custom_dict["title"] = []
+    custom_dict["score"] = []
+    custom_dict["created_utc"] = []
+    custom_dict["text"] = []
 
 
-def get_tfidf_score(category, categ_array):  # get score for each category
+def get_tfidf_score(category, categ_array, cust_dict=None):  # get score for each category
+    if cust_dict is None:
+        cust_dict = attr_dict_expl
     score_array = []
-    for text in attr_dict_expl[category]:
+    for text in cust_dict[category]:
+        length = len(text)
         tfidf_sum = 0
         text = text.split(" ")
         for word in text:
             if word in categ_array:  # if in some strange case word doesn't exist, let me finish this project on time
                 tfidf_sum += categ_array[word]
+            else:
+                length -= 1  # do not take into account if word is not in dict
         score_array.append(tfidf_sum / len(text))  # so it is not biased towards longer sentences
     return score_array
 
@@ -79,9 +90,11 @@ def get_feature_list():
             img_path = os.path.join(PICS_PATH, fname)
         else:
             print("Is this the last one?", str(i), " with len ", len(pics_names))
-            img_path = fname
+            # img_path = fname
+            break
 
-        get_attr_in_dict(img_path.split(".")[0])  # get rid of .jpeg, ".attrs" is added in func
+        get_attr_in_dict(img_path)  # get rid of .jpeg, ".attrs" is added in func
+        # TODO: To replace with get_data_for_prediction
         img = image.load_img(img_path, target_size=(224, 224))
         img_data = image.img_to_array(img)
         img_data = np.expand_dims(img_data, axis=0)
@@ -89,6 +102,7 @@ def get_feature_list():
 
         vgg16_feature = model.predict(img_data)
         vgg16_feature_np = np.array(vgg16_feature)
+        # until here
         vgg16_feature_list.append(vgg16_feature_np.flatten())
 
 
@@ -101,6 +115,26 @@ def print_best_words(tfidf):
     print(" ")
 
 
+def get_data_for_prediciton(img_path):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_data = image.img_to_array(img)
+    img_data = np.expand_dims(img_data, axis=0)
+    img_data = preprocess_input(img_data)
+
+    vgg16_feature = model.predict(img_data)
+    vgg16_feature_np = np.array(vgg16_feature)
+
+    get_attr_in_dict(img_path, cust_dict=our_meme_dict)
+    test_feature_list.append(vgg16_feature_np.flatten())
+    return vgg16_feature_np.flatten()  # no need?
+
+
+def normalize(arr):
+    arr_sum = sum(arr)
+    if arr_sum == 0:
+        arr_sum = 1
+    return [float(i) / arr_sum for i in arr]
+
 print("Setting up the model..")
 model = VGG16(weights='imagenet', include_top=False)
 vectorizer = TfidfVectorizer()
@@ -111,11 +145,13 @@ init_attr_dict_expl()
 
 attr_dict = dict()
 vgg16_feature_list = []
+test_feature_list = []
 all_pics_names = os.listdir(PICS_PATH)  # path of all files from pics, with
 
 # Artificially apppend our data!
-all_pics_names.append("7lzlz0zl0jc81.jpg")
-all_pics_names.append("7lzlz0zl0jc81.attrs")
+# all_pics_names.append("7lzlz0zl0jc81.jpg")
+# all_pics_names.append("7lzlz0zl0jc81.attrs")
+our_meme_dict = dict()
 
 for fname in all_pics_names:
     if fname.split(".")[-1] == "attrs":
@@ -129,11 +165,21 @@ df = pd.DataFrame(vgg16_feature_list_np)  # you can also cluster a dataframe
 text_tfidf = get_tfidf_dict("text")
 title_tfidf = get_tfidf_dict("title")
 
+#   TEST
+init_attr_dict_expl(our_meme_dict)
+get_data_for_prediciton(tested_meme)
+test_df = pd.DataFrame(np.array(test_feature_list))
+test_text_score = normalize(get_tfidf_score("text", text_tfidf, cust_dict=our_meme_dict))
+test_title_score = normalize(get_tfidf_score("title", text_tfidf, cust_dict=our_meme_dict))
+test_df["text"] = test_text_score
+test_df["title"] = test_title_score
+#   TEST
+
 text_score = get_tfidf_score("text", text_tfidf)
 title_score = get_tfidf_score("title", title_tfidf)
 
-n_text_score = [float(i)/sum(text_score) for i in text_score]
-n_title_score = [float(i)/sum(title_score) for i in title_score]
+n_text_score = normalize(text_score)
+n_title_score = normalize(title_score)
 
 print("Text best words: ")
 print_best_words(text_tfidf)
@@ -144,8 +190,11 @@ print_best_words(title_tfidf)
 df["text"] = n_text_score
 df["title"] = n_title_score
 
-kmeans = KMeans(n_clusters=2, random_state=0).fit(df)
+kmodel = KMeans(n_clusters=2, random_state=0)
+train = kmodel.fit(df)
+test = kmodel.predict(test_df)
 labels = KMeans(n_clusters=2, random_state=0).fit_predict(df)
+
 
 avg_score = sum(list(map(int, attr_dict_expl["score"]))) / len(attr_dict_expl["score"])
 print("Average upvote score is ", str(avg_score))
@@ -167,7 +216,7 @@ else:
 
 print("The popular label is: ", res)
 
-if labels[-1] == res:
+if test[0] == res:
     print("Your meme is popular!")
 else:
     print("Maybe try another meme..")
