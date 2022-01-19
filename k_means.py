@@ -21,17 +21,6 @@ tested_meme = "7lzlz0zl0jc81.jpg"
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-
-def copy_to_folders():
-    for idx, label in enumerate(kmeans.labels_):
-        src = os.path.join(PICS_PATH, pics_names[idx])
-        if label == 0:
-            dest = POPULAR_PATH
-        else:
-            dest = NON_POPULAR_PATH
-        shutil.copy(src, dest)
-
-
 def get_attr_in_dict(filename, cust_dict=None):
     if cust_dict is None:
         cust_dict = attr_dict_expl

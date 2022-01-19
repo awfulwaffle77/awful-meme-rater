@@ -89,3 +89,4 @@ depends on image features a lot too.
 apply kmeans~~
 
 - plot some scores bro, or sth relevant
+- speak about how u wanna put in SVM

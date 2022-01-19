@@ -63,7 +63,7 @@ if __name__ == "__main__":
     d = enchant.Dict("en_US")
 
     # cont = input("Folder " + RESOURCES_FOLDER + " will be emptied. Continue? y/N ")
-    cont = "y"
+    cont = "N"
 
     if cont == "y":
         print("Removing contents of " + RESOURCES_FOLDER + "..")
@@ -101,11 +101,11 @@ if __name__ == "__main__":
             _, img = cv2.threshold(img, 240, 255, 1)
             # img = cv2.Canny(cv2.medianBlur(image, 5), 100, 200)
 
-            # cv2.namedWindow('img', cv2.WINDOW_KEEPRATIO)
-            # cv2.imshow("img", img)
-            # cv2.resizeWindow('img', 800, 800)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+            cv2.namedWindow('img', cv2.WINDOW_KEEPRATIO)
+            cv2.imshow("img", img)
+            cv2.resizeWindow('img', 800, 800)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
             text = pytesseract.image_to_string(img, lang='eng', config=PYTESSERACT_CONFIG)
 
